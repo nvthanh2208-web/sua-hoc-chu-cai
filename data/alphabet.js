@@ -303,7 +303,7 @@ const alphabet = [
     upper: "X",
     lower: "x",
     fileCode: "x",
-    word: "Xe Ô tô",
+    word: " Xe ô tô",
     image: "images/x.webp",
     sound: "sounds/x.mp3",
     category: "phu-am",
