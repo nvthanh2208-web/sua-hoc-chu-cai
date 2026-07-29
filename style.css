@@ -76,7 +76,7 @@ h1 {
 }
 
 .illustration {
-  width: min(100%, 300px);
+  width: min(100%, 200px);
   margin: 8px auto 0;
   padding: 10px;
   border-radius: 24px;
