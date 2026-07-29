@@ -249,7 +249,7 @@ function renderCurrentLetter() {
     `Đang học chữ ${item.upper}`;
 
   document.title =
-    `${item.upper} - Sóc học chữ cái`;
+    `${item.upper} - Sữa học chữ cái`;
     const progressPercent =
   ((currentIndex + 1) / alphabet.length) * 100;
 
@@ -300,7 +300,7 @@ function playCurrentSound() {
 
   currentAudio.play().catch(() => {
     statusMessage.textContent =
-      "Hãy bấm nút Sóc nghe lại để phát âm thanh.";
+      "Hãy bấm nút Sữa nghe lại để phát âm thanh.";
   });
 }
 
@@ -474,7 +474,7 @@ function playQuestionSound() {
   currentAudio.addEventListener("ended", () => {
     if (!questionAnswered) {
       playFeedback.textContent =
-        "Sóc hãy chọn hình đúng nhé!";
+        "Sữa hãy chọn hình đúng nhé!";
     }
   });
 
@@ -485,7 +485,7 @@ function playQuestionSound() {
 
   currentAudio.play().catch(() => {
     playFeedback.textContent =
-      "Hãy bấm Sóc Nghe câu hỏi để phát âm thanh.";
+      "Hãy bấm Sữa Nghe câu hỏi để phát âm thanh.";
   });
 }
 function checkPlayAnswer(button, selectedItem) {
@@ -502,7 +502,7 @@ function checkPlayAnswer(button, selectedItem) {
     playEffectSound(wrongSound);
 
     playFeedback.textContent =
-      "Chưa đúng. Sóc thử lại nhé!";
+      "Chưa đúng. Sữa thử lại nhé!";
 
     window.setTimeout(() => {
       button.classList.remove("wrong");
@@ -523,7 +523,7 @@ function checkPlayAnswer(button, selectedItem) {
   createStarEffect(button);
 
   playFeedback.textContent =
-    `Sóc chọn đúng rồi! ${currentCorrectItem.upper} như ${currentCorrectItem.word}.`;
+    `Sữa chọn đúng rồi! ${currentCorrectItem.upper} như ${currentCorrectItem.word}.`;
 
   disableAnswerCards();
 
@@ -585,7 +585,7 @@ function showPlayResult() {
     String(TOTAL_QUESTIONS);
 
   playInstructionElement.textContent =
-    "Sóc đã hoàn thành thử thách!";
+    "Sữa đã hoàn thành thử thách!";
 
   playFeedback.textContent =
     getResultMessage(playScore);
@@ -600,18 +600,18 @@ function showPlayResult() {
 }
 function getResultMessage(score) {
   if (score === TOTAL_QUESTIONS) {
-    return "Xuất sắc! Sóc đã trả lời đúng tất cả câu hỏi.";
+    return "Xuất sắc! Sữa đã trả lời đúng tất cả câu hỏi.";
   }
 
   if (score >= 8) {
-    return "Rất tốt! Sóc đã nhớ được nhiều chữ cái.";
+    return "Rất tốt! Sữa đã nhớ được nhiều chữ cái.";
   }
 
   if (score >= 5) {
-    return "Khá tốt! Sóc hãy luyện thêm một lượt nữa nhé.";
+    return "Khá tốt! Sữa hãy luyện thêm một lượt nữa nhé.";
   }
 
-  return "Sóc hãy quay lại phần Học chữ rồi thử lại nhé.";
+  return "Sữa hãy quay lại phần Học chữ rồi thử lại nhé.";
 }
 function restartPlayMode() {
   stopCurrentAudio();
