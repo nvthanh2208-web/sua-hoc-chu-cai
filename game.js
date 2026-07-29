@@ -444,12 +444,18 @@ function renderAnswerChoices() {
     image.loading = "lazy";
     image.decoding = "async";
 
+    const imageWrap =
+      document.createElement("div");
+
+    imageWrap.className = "answerImageWrap";
+    imageWrap.appendChild(image);
+
     const label =
       document.createElement("span");
 
     label.textContent = item.word;
 
-    button.append(image, label);
+    button.append(imageWrap, label);
 
     button.addEventListener("click", () => {
       checkPlayAnswer(button, item);

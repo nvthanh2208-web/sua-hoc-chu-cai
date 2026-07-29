@@ -194,7 +194,7 @@ const alphabet = [
     lower: "ô",
     fileCode: "oo",
     word: "Cái Ô",
-    image: "images/oo.png",
+    image: "images/oo.webp",
     sound: "sounds/oo.mp3",
     category: "nguyen-am",
     difficulty: 1
