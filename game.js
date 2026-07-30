@@ -1,574 +1,395 @@
 "use strict";
-const homeScreen =
-  document.getElementById("homeScreen");
 
-const learnScreen =
-  document.getElementById("learnScreen");
+const byId = (id) => document.getElementById(id);
 
-const playScreen =
-  document.getElementById("playScreen");
+const homeScreen = byId("homeScreen");
+const learnScreen = byId("learnScreen");
+const playScreen = byId("playScreen");
+const learnModeButton = byId("learnModeButton");
+const playModeButton = byId("playModeButton");
+const homeButton = byId("homeButton");
+const playHomeButton = byId("playHomeButton");
+const currentNumberElement = byId("currentNumber");
+const totalNumberElement = byId("totalNumber");
+const letterButton = byId("letterButton");
+const smallLetterElement = byId("smallLetter");
+const letterImage = byId("letterImage");
+const wordElement = byId("word");
+const soundButton = byId("soundButton");
+const previousButton = byId("previousButton");
+const nextButton = byId("nextButton");
+const statusMessage = byId("statusMessage");
+const progressBar = byId("progressBar");
+const learningCard = document.querySelector(".learningCard");
+const playScoreElement = byId("playScore");
+const questionNumberElement = byId("questionNumber");
+const totalQuestionsElement = byId("totalQuestions");
+const playInstructionElement = byId("playInstruction");
+const playSoundButton = byId("playSoundButton");
+const answerGrid = byId("answerGrid");
+const playFeedback = byId("playFeedback");
+const nextQuestionButton = byId("nextQuestionButton");
+const resultPanel = byId("resultPanel");
+const resultScore = byId("resultScore");
+const resultTotal = byId("resultTotal");
+const starEffectLayer = byId("starEffectLayer");
 
-const learnModeButton =
-  document.getElementById("learnModeButton");
-
-const playModeButton =
-  document.getElementById("playModeButton");
-
-const homeButton =
-  document.getElementById("homeButton");
-
-const playHomeButton =
-  document.getElementById("playHomeButton");
-const currentNumberElement =
-  document.getElementById("currentNumber");
-
-const totalNumberElement =
-  document.getElementById("totalNumber");
-
-const letterButton =
-  document.getElementById("letterButton");
-
-const smallLetterElement =
-  document.getElementById("smallLetter");
-
-const letterImage =
-  document.getElementById("letterImage");
-
-const wordElement =
-  document.getElementById("word");
-
-const soundButton =
-  document.getElementById("soundButton");
-
-const previousButton =
-  document.getElementById("previousButton");
-
-const nextButton =
-  document.getElementById("nextButton");
-
-const statusMessage =
-  document.getElementById("statusMessage");
-
-const progressBar =
-  document.getElementById("progressBar");
-const learningCard =
-  document.querySelector(".learningCard");
-
-  const playScoreElement =
-  document.getElementById("playScore");
-
-const questionNumberElement =
-  document.getElementById("questionNumber");
-
-const totalQuestionsElement =
-  document.getElementById("totalQuestions");
-
-const playInstructionElement =
-  document.getElementById("playInstruction");
-
-const playSoundButton =
-  document.getElementById("playSoundButton");
-
-const answerGrid =
-  document.getElementById("answerGrid");
-
-const playFeedback =
-  document.getElementById("playFeedback");
-
-const nextQuestionButton =
-  document.getElementById("nextQuestionButton");
-
-  const TOTAL_QUESTIONS = 10;
+const TOTAL_QUESTIONS = 10;
 const ANSWER_COUNT = 4;
-const resultPanel =
-  document.getElementById("resultPanel");
+const AUDIO_GAP_MS = 70;
 
-const resultScore =
-  document.getElementById("resultScore");
-
-const resultTotal =
-  document.getElementById("resultTotal");
-
-  const starEffectLayer =
-  document.getElementById("starEffectLayer");
-
-const correctSound =
-  new Audio("sounds/correct.mp3");
-correctSound.preload = "auto";
-
-const wrongSound =
-  new Audio("sounds/wrong.mp3");
-wrongSound.preload = "auto";
-
+let currentIndex = 0;
 let playScore = 0;
 let currentQuestionNumber = 1;
 let currentCorrectItem = null;
 let currentChoices = [];
-let questionAnswered = false;
-let currentIndex = 0;
-let currentAudio = null;
 let playQuestionPool = [];
-function stopCurrentAudio() {
-  if (!currentAudio) {
-    return;
-  }
+let questionAnswered = false;
+let answerBusy = false;
+let activeAudio = null;
+let audioSequence = 0;
 
-  currentAudio.pause();
-  currentAudio.currentTime = 0;
+const audioCache = new Map();
+
+function getAudio(src) {
+  if (!src) return null;
+  if (!audioCache.has(src)) {
+    const audio = new Audio(src);
+    audio.preload = "auto";
+    audio.volume = 1;
+    audioCache.set(src, audio);
+  }
+  return audioCache.get(src);
 }
 
-function playEffectSound(audio) {
-  audio.pause();
-  audio.currentTime = 0;
+const correctSound = getAudio("sounds/correct.mp3");
+const wrongSound = getAudio("sounds/wrong.mp3");
 
-  audio.play().catch(() => {
-    // Không làm gián đoạn game nếu trình duyệt chặn âm thanh.
+function stopActiveAudio() {
+  audioSequence += 1;
+  if (!activeAudio) return;
+  activeAudio.pause();
+  activeAudio.currentTime = 0;
+  activeAudio = null;
+}
+
+function playAudio(audio, sequenceId = audioSequence) {
+  return new Promise((resolve) => {
+    if (!audio || sequenceId !== audioSequence) {
+      resolve(false);
+      return;
+    }
+
+    if (activeAudio && activeAudio !== audio) {
+      activeAudio.pause();
+      activeAudio.currentTime = 0;
+    }
+
+    activeAudio = audio;
+    audio.pause();
+    audio.currentTime = 0;
+
+    let finished = false;
+    const done = (ok = true) => {
+      if (finished) return;
+      finished = true;
+      audio.removeEventListener("ended", onEnded);
+      audio.removeEventListener("error", onError);
+      if (activeAudio === audio) activeAudio = null;
+      resolve(ok && sequenceId === audioSequence);
+    };
+    const onEnded = () => done(true);
+    const onError = () => done(false);
+
+    audio.addEventListener("ended", onEnded, { once: true });
+    audio.addEventListener("error", onError, { once: true });
+    const promise = audio.play();
+    if (promise) promise.catch(() => done(false));
   });
 }
 
-function createStarEffect(button) {
-  const buttonRect =
-    button.getBoundingClientRect();
-
-  const centerX =
-    buttonRect.left + buttonRect.width / 2;
-
-  const centerY =
-    buttonRect.top + buttonRect.height / 2;
-
-  const starCount = 5;
-
-  for (let index = 0; index < starCount; index += 1) {
-    const star =
-      document.createElement("div");
-
-    star.className = "flyingStar";
-    star.textContent = "⭐";
-
-    const horizontalOffset =
-      (Math.random() - 0.5) * 140;
-
-    const verticalOffset =
-      (Math.random() - 0.5) * 40;
-
-    star.style.left =
-      `${centerX + horizontalOffset}px`;
-
-    star.style.top =
-      `${centerY + verticalOffset}px`;
-
-    star.style.animationDelay =
-      `${index * 0.08}s`;
-
-    starEffectLayer.appendChild(star);
-
-    window.setTimeout(() => {
-      star.remove();
-    }, 1400);
-  }
+function wait(ms, sequenceId) {
+  return new Promise((resolve) => {
+    window.setTimeout(() => resolve(sequenceId === audioSequence), ms);
+  });
 }
-function prepareQuestionPool() {
-  playQuestionPool =
-    shuffleArray(alphabet).slice(0, TOTAL_QUESTIONS);
+
+async function playFeedbackSequence(item, isCorrect, sequenceId) {
+  const choiceAudio = getAudio(item.choiceSound || item.sound);
+  await playAudio(choiceAudio, sequenceId);
+  if (sequenceId !== audioSequence) return;
+  await wait(AUDIO_GAP_MS, sequenceId);
+  if (sequenceId !== audioSequence) return;
+  await playAudio(isCorrect ? correctSound : wrongSound, sequenceId);
 }
+
+function preloadAudio(src) {
+  const audio = getAudio(src);
+  if (audio) audio.load();
+}
+
+function preloadImage(src) {
+  const image = new Image();
+  image.decoding = "async";
+  image.src = src;
+}
+
 function showScreen(screen) {
   homeScreen.classList.add("hidden");
   learnScreen.classList.add("hidden");
   playScreen.classList.add("hidden");
-
   screen.classList.remove("hidden");
 }
 
-function openLearnMode() {
-  showScreen(learnScreen);
-  renderCurrentLetter();
-}
-
-function openPlayMode() {
-  showScreen(playScreen);
-
-  playScore = 0;
-  currentQuestionNumber = 1;
-  currentCorrectItem = null;
-  currentChoices = [];
-  questionAnswered = false;
-
-  playSoundButton.disabled = false;
-  nextQuestionButton.textContent =
-    "Câu tiếp theo →";
-  prepareQuestionPool();
-  createQuestion();
-}
-
 function returnHome() {
-  stopCurrentAudio();
+  stopActiveAudio();
+  answerBusy = false;
   showScreen(homeScreen);
 }
+
 function getCurrentLetter() {
   return alphabet[currentIndex];
 }
 
 function renderCurrentLetter() {
   const item = getCurrentLetter();
+  currentNumberElement.textContent = String(currentIndex + 1);
+  totalNumberElement.textContent = String(alphabet.length);
+  letterButton.textContent = item.upper;
+  smallLetterElement.textContent = item.lower;
+  letterImage.src = item.image;
+  letterImage.alt = item.word.trim();
+  wordElement.textContent = item.word.trim();
+  previousButton.disabled = currentIndex === 0;
+  const isLastLetter = currentIndex === alphabet.length - 1;
+  nextButton.disabled = false;
+  nextButton.textContent = isLastLetter ? "Học lại từ đầu ↻" : "Chữ tiếp theo →";
+  statusMessage.textContent = `Đang học chữ ${item.upper}`;
+  document.title = `${item.upper} - Sóc học chữ cái`;
+  progressBar.style.width = `${((currentIndex + 1) / alphabet.length) * 100}%`;
 
-  currentNumberElement.textContent =
-    String(currentIndex + 1);
-
-  totalNumberElement.textContent =
-    String(alphabet.length);
-
-  letterButton.textContent =
-    item.upper;
-
-  smallLetterElement.textContent =
-    item.lower;
-
-  letterImage.src =
-    item.image;
-
-  letterImage.alt =
-    item.word;
-
-  wordElement.textContent =
-    item.word;
-
-  preloadNearbyLearningImages();
-
-  previousButton.disabled =
-    currentIndex === 0;
-
-    const isLastLetter =
-        currentIndex === alphabet.length - 1;
-
-    nextButton.disabled = false;
-
-    nextButton.textContent = isLastLetter
-        ? "Học lại từ đầu ↻"
-        : "Chữ tiếp theo →";
-  statusMessage.textContent =
-    `Đang học chữ ${item.upper}`;
-
-  document.title =
-    `${item.upper} - Sữa học chữ cái`;
-    const progressPercent =
-  ((currentIndex + 1) / alphabet.length) * 100;
-
-    progressBar.style.width =
-  ` ${progressPercent}%`;
   learningCard.classList.remove("is-changing");
+  void learningCard.offsetWidth;
+  learningCard.classList.add("is-changing");
 
-void learningCard.offsetWidth;
-
-learningCard.classList.add("is-changing");
-}
-
-function preloadNearbyLearningImages() {
-  const nearbyIndexes = [currentIndex - 1, currentIndex + 1];
-
-  nearbyIndexes.forEach((index) => {
-    if (index < 0 || index >= alphabet.length) {
-      return;
-    }
-
-    const image = new Image();
-    image.src = alphabet[index].image;
+  [currentIndex - 1, currentIndex + 1].forEach((index) => {
+    if (index >= 0 && index < alphabet.length) preloadImage(alphabet[index].image);
   });
 }
 
 function playCurrentSound() {
   const item = getCurrentLetter();
-
-  if (currentAudio) {
-    currentAudio.pause();
-    currentAudio.currentTime = 0;
-  }
-
-  currentAudio = new Audio(item.sound);
-
-  statusMessage.textContent =
-    `Đang phát âm chữ ${item.upper}`;
-
-  currentAudio.addEventListener("ended", () => {
-    statusMessage.textContent =
-      `${item.upper} như ${item.word}`;
-  });
-
-  currentAudio.addEventListener("error", () => {
-    statusMessage.textContent =
-      `Không thể phát âm thanh chữ ${item.upper}`;
-  });
-
-  currentAudio.play().catch(() => {
-    statusMessage.textContent =
-      "Hãy bấm nút Sữa nghe lại để phát âm thanh.";
+  stopActiveAudio();
+  const sequenceId = audioSequence;
+  const audio = getAudio(item.sound);
+  statusMessage.textContent = `Đang phát âm chữ ${item.upper}`;
+  playAudio(audio, sequenceId).then((ok) => {
+    if (ok) statusMessage.textContent = `${item.upper} như ${item.word.trim()}`;
   });
 }
 
 function showPreviousLetter() {
-  if (currentIndex <= 0) {
-    return;
-  }
-
+  if (currentIndex <= 0) return;
   currentIndex -= 1;
   renderCurrentLetter();
   playCurrentSound();
 }
 
 function showNextLetter() {
-  const isLastLetter =
-    currentIndex === alphabet.length - 1;
-
-  if (isLastLetter) {
-    currentIndex = 0;
-  } else {
-    currentIndex += 1;
-  }
-
+  currentIndex = currentIndex === alphabet.length - 1 ? 0 : currentIndex + 1;
   renderCurrentLetter();
   playCurrentSound();
 }
-soundButton.addEventListener(
-  "click",
-  playCurrentSound
-);
 
-letterButton.addEventListener(
-  "click",
-  playCurrentSound
-);
-
-previousButton.addEventListener(
-  "click",
-  showPreviousLetter
-);
-
-nextButton.addEventListener(
-  "click",
-  showNextLetter
-);
-
-
-learnModeButton.addEventListener(
-  "click",
-  openLearnMode
-);
-
-playModeButton.addEventListener(
-  "click",
-  openPlayMode
-);
-
-homeButton.addEventListener(
-  "click",
-  returnHome
-);
-
-playHomeButton.addEventListener(
-  "click",
-  returnHome
-);
 function shuffleArray(items) {
   const result = [...items];
-
   for (let index = result.length - 1; index > 0; index -= 1) {
-    const randomIndex =
-      Math.floor(Math.random() * (index + 1));
-
-    [result[index], result[randomIndex]] =
-      [result[randomIndex], result[index]];
+    const randomIndex = Math.floor(Math.random() * (index + 1));
+    [result[index], result[randomIndex]] = [result[randomIndex], result[index]];
   }
-
   return result;
 }
-function createQuestion() {
-  questionAnswered = false;
 
-  playFeedback.textContent = "";
+function prepareQuestionPool() {
+  playQuestionPool = shuffleArray(alphabet).slice(0, TOTAL_QUESTIONS);
+}
+
+function openLearnMode() {
+  stopActiveAudio();
+  showScreen(learnScreen);
+  renderCurrentLetter();
+}
+
+function openPlayMode() {
+  stopActiveAudio();
+  showScreen(playScreen);
+  playScore = 0;
+  currentQuestionNumber = 1;
+  currentCorrectItem = null;
+  currentChoices = [];
+  questionAnswered = false;
+  answerBusy = false;
+  playSoundButton.disabled = false;
+  nextQuestionButton.textContent = "Câu tiếp theo →";
+  prepareQuestionPool();
+  createQuestion();
+}
+
+function createQuestion() {
+  stopActiveAudio();
+  questionAnswered = false;
+  answerBusy = false;
+  playFeedback.textContent = "Sóc hãy chọn hình đúng nhé!";
   nextQuestionButton.disabled = true;
   nextQuestionButton.textContent = "Câu tiếp theo →";
-
   resultPanel.classList.add("hidden");
   answerGrid.classList.remove("hidden");
 
-  currentCorrectItem =
-    playQuestionPool[currentQuestionNumber - 1];
+  currentCorrectItem = playQuestionPool[currentQuestionNumber - 1];
+  const wrongChoices = shuffleArray(
+    alphabet.filter((item) => item.id !== currentCorrectItem.id)
+  ).slice(0, ANSWER_COUNT - 1);
+  currentChoices = shuffleArray([currentCorrectItem, ...wrongChoices]);
 
-  const wrongChoices =
-    shuffleArray(
-      alphabet.filter(
-        (item) => item.id !== currentCorrectItem.id
-      )
-    ).slice(0, ANSWER_COUNT - 1);
-
-  currentChoices =
-    shuffleArray([
-      currentCorrectItem,
-      ...wrongChoices
-    ]);
-
-  playScoreElement.textContent =
-    String(playScore);
-
-  questionNumberElement.textContent =
-    String(currentQuestionNumber);
-
-  totalQuestionsElement.textContent =
-    String(TOTAL_QUESTIONS);
-
-  playInstructionElement.textContent =
-    `Hãy chọn hình minh họa cho chữ ${currentCorrectItem.upper}`;
-
+  playScoreElement.textContent = String(playScore);
+  questionNumberElement.textContent = String(currentQuestionNumber);
+  totalQuestionsElement.textContent = String(TOTAL_QUESTIONS);
+  playInstructionElement.textContent = `Hãy chọn hình minh họa cho chữ ${currentCorrectItem.upper}`;
   renderAnswerChoices();
 
-  window.setTimeout(() => {
-    playQuestionSound();
-  }, 250);
+  preloadAudio(currentCorrectItem.sound);
+  currentChoices.forEach((item) => preloadAudio(item.choiceSound || item.sound));
+  preloadNextQuestionAssets();
+
+  // Tự động đọc câu hỏi ngay khi mở trò chơi hoặc chuyển sang câu mới.
+  // Hàm createQuestion được gọi từ thao tác bấm của người dùng nên hoạt động tốt trên iPhone.
+  playQuestionSound({ automatic: true });
 }
+
 function renderAnswerChoices() {
-  answerGrid.innerHTML = "";
+  answerGrid.replaceChildren();
+  const fragment = document.createDocumentFragment();
 
   currentChoices.forEach((item) => {
-    const button =
-      document.createElement("button");
-
+    const button = document.createElement("button");
     button.type = "button";
     button.className = "answerCard";
 
-    const image =
-      document.createElement("img");
+    const imageWrap = document.createElement("div");
+    imageWrap.className = "answerImageWrap";
 
+    const image = document.createElement("img");
     image.src = item.image;
-    image.alt = item.word;
+    image.alt = item.word.trim();
     image.width = 512;
     image.height = 512;
-    image.loading = "lazy";
+    image.loading = "eager";
     image.decoding = "async";
 
-    const imageWrap =
-      document.createElement("div");
+    const label = document.createElement("span");
+    label.textContent = item.word.trim();
 
-    imageWrap.className = "answerImageWrap";
     imageWrap.appendChild(image);
-
-    const label =
-      document.createElement("span");
-
-    label.textContent = item.word;
-
     button.append(imageWrap, label);
+    button.addEventListener("click", () => checkPlayAnswer(button, item));
+    fragment.appendChild(button);
+  });
 
-    button.addEventListener("click", () => {
-      checkPlayAnswer(button, item);
-    });
+  answerGrid.appendChild(fragment);
+}
 
-    answerGrid.appendChild(button);
+function setAnswerCardsDisabled(disabled) {
+  answerGrid.querySelectorAll(".answerCard").forEach((button) => {
+    button.disabled = disabled;
   });
 }
-function playQuestionSound() {
-  if (!currentCorrectItem) {
-    return;
-  }
 
-  stopCurrentAudio();
+async function checkPlayAnswer(button, selectedItem) {
+  if (questionAnswered || answerBusy) return;
 
-  currentAudio =
-    new Audio(currentCorrectItem.sound);
-
-  playFeedback.textContent =
-    `Đang phát âm chữ ${currentCorrectItem.upper}`;
-
-  currentAudio.addEventListener("ended", () => {
-    if (!questionAnswered) {
-      playFeedback.textContent =
-        "Sữa hãy chọn hình đúng nhé!";
-    }
-  });
-
-  currentAudio.addEventListener("error", () => {
-    playFeedback.textContent =
-      "Không thể phát âm thanh câu hỏi.";
-  });
-
-  currentAudio.play().catch(() => {
-    playFeedback.textContent =
-      "Hãy bấm Sữa Nghe câu hỏi để phát âm thanh.";
-  });
-}
-function checkPlayAnswer(button, selectedItem) {
-  if (questionAnswered) {
-    return;
-  }
-
-  const isCorrect =
-    selectedItem.id === currentCorrectItem.id;
+  answerBusy = true;
+  setAnswerCardsDisabled(true);
+  stopActiveAudio();
+  const sequenceId = audioSequence;
+  const isCorrect = selectedItem.id === currentCorrectItem.id;
 
   if (!isCorrect) {
     button.classList.add("wrong");
-    stopCurrentAudio();
-    playEffectSound(wrongSound);
-
-    playFeedback.textContent =
-      "Chưa đúng. Sữa thử lại nhé!";
-
-    window.setTimeout(() => {
-      button.classList.remove("wrong");
-    }, 500);
-
+    playFeedback.textContent = `${selectedItem.upper} chưa đúng. Sóc thử lại nhé!`;
+    await playFeedbackSequence(selectedItem, false, sequenceId);
+    button.classList.remove("wrong");
+    if (!questionAnswered) setAnswerCardsDisabled(false);
+    answerBusy = false;
     return;
   }
 
   questionAnswered = true;
   playScore += 1;
-
-  playScoreElement.textContent =
-    String(playScore);
-
+  playScoreElement.textContent = String(playScore);
   button.classList.add("correct");
-  stopCurrentAudio();
-  playEffectSound(correctSound);
   createStarEffect(button);
+  playFeedback.textContent = `Sóc chọn đúng rồi! ${currentCorrectItem.upper} như ${currentCorrectItem.word.trim()}.`;
 
-  playFeedback.textContent =
-    `Sữa chọn đúng rồi! ${currentCorrectItem.upper} như ${currentCorrectItem.word}.`;
-
-  disableAnswerCards();
-
+  // Mở nút ngay lập tức; không chờ chuỗi âm thanh kết thúc.
   nextQuestionButton.disabled = false;
+  nextQuestionButton.textContent = currentQuestionNumber === TOTAL_QUESTIONS
+    ? "Xem kết quả →"
+    : "Câu tiếp theo →";
+  nextQuestionButton.scrollIntoView({ block: "nearest", behavior: "smooth" });
 
-  if (currentQuestionNumber === TOTAL_QUESTIONS) {
-    nextQuestionButton.textContent =
-      "Xem kết quả →";
-  } else {
-    nextQuestionButton.textContent =
-      "Câu tiếp theo →";
-  }
-}
-function disableAnswerCards() {
-  const buttons =
-    answerGrid.querySelectorAll(".answerCard");
-
-  buttons.forEach((button) => {
-    button.disabled = true;
+  // Phát âm thanh nền; người dùng có thể chuyển câu ngay.
+  playFeedbackSequence(selectedItem, true, sequenceId).finally(() => {
+    answerBusy = false;
   });
 }
+
+function playQuestionSound({ automatic = false } = {}) {
+  if (!currentCorrectItem || answerBusy || questionAnswered) return;
+
+  stopActiveAudio();
+  const sequenceId = audioSequence;
+  playFeedback.textContent = `Đang phát âm chữ ${currentCorrectItem.upper}`;
+
+  playAudio(getAudio(currentCorrectItem.sound), sequenceId).then((ok) => {
+    if (ok && !questionAnswered) {
+      playFeedback.textContent = "Sóc hãy chọn hình đúng nhé!";
+    } else if (!ok && automatic && !questionAnswered) {
+      // Safari có thể chặn tự phát trong một số trường hợp; nút Sóc nghe vẫn dùng được.
+      playFeedback.textContent = "Bấm Sóc nghe câu hỏi nếu chưa nghe rõ nhé!";
+    }
+  });
+}
+
+function preloadNextQuestionAssets() {
+  const next = playQuestionPool[currentQuestionNumber];
+  if (!next) return;
+  preloadImage(next.image);
+  preloadAudio(next.sound);
+  preloadAudio(next.choiceSound || next.sound);
+}
+
+function createStarEffect(button) {
+  const rect = button.getBoundingClientRect();
+  const centerX = rect.left + rect.width / 2;
+  const centerY = rect.top + rect.height / 2;
+  for (let index = 0; index < 5; index += 1) {
+    const star = document.createElement("div");
+    star.className = "flyingStar";
+    star.textContent = "⭐";
+    star.style.left = `${centerX + (Math.random() - 0.5) * 140}px`;
+    star.style.top = `${centerY + (Math.random() - 0.5) * 40}px`;
+    star.style.animationDelay = `${index * 0.06}s`;
+    starEffectLayer.appendChild(star);
+    window.setTimeout(() => star.remove(), 1300);
+  }
+}
+
 function goToNextQuestion() {
-  if (!questionAnswered) {
-    return;
-  }
+  if (!questionAnswered) return;
+  stopActiveAudio();
+  answerBusy = false;
 
-  const gameFinished =
-    currentQuestionNumber >= TOTAL_QUESTIONS;
-
-  const isResultScreen =
-    gameFinished &&
-    answerGrid.children.length === 0;
-
-  if (isResultScreen) {
-    restartPlayMode();
-    return;
-  }
-
-  if (gameFinished) {
+  if (currentQuestionNumber >= TOTAL_QUESTIONS) {
     showPlayResult();
     return;
   }
@@ -576,82 +397,106 @@ function goToNextQuestion() {
   currentQuestionNumber += 1;
   createQuestion();
 }
+
+function createFireworks(duration = 4500) {
+  const oldLayer = document.querySelector(".fireworksLayer");
+  if (oldLayer) oldLayer.remove();
+
+  const layer = document.createElement("div");
+  layer.className = "fireworksLayer";
+  layer.setAttribute("aria-hidden", "true");
+  document.body.appendChild(layer);
+
+  const symbols = ["⭐", "✨", "🎉", "🎊"];
+  const launchBurst = () => {
+    const centerX = 10 + Math.random() * 80;
+    const centerY = 12 + Math.random() * 55;
+
+    for (let index = 0; index < 16; index += 1) {
+      const particle = document.createElement("span");
+      particle.className = "fireworkParticle";
+      particle.textContent = symbols[Math.floor(Math.random() * symbols.length)];
+
+      const angle = (Math.PI * 2 * index) / 16 + Math.random() * 0.25;
+      const distance = 70 + Math.random() * 150;
+      particle.style.left = `${centerX}%`;
+      particle.style.top = `${centerY}%`;
+      particle.style.setProperty("--firework-x", `${Math.cos(angle) * distance}px`);
+      particle.style.setProperty("--firework-y", `${Math.sin(angle) * distance}px`);
+      particle.style.animationDelay = `${Math.random() * 90}ms`;
+      layer.appendChild(particle);
+      particle.addEventListener("animationend", () => particle.remove(), { once: true });
+    }
+  };
+
+  launchBurst();
+  const intervalId = window.setInterval(launchBurst, 520);
+  window.setTimeout(() => {
+    window.clearInterval(intervalId);
+    window.setTimeout(() => layer.remove(), 1300);
+  }, duration);
+}
+
 function showPlayResult() {
-  stopCurrentAudio();
-
-  answerGrid.innerHTML = "";
+  stopActiveAudio();
+  answerGrid.replaceChildren();
   answerGrid.classList.add("hidden");
-
   resultPanel.classList.remove("hidden");
-
-  resultScore.textContent =
-    String(playScore);
-
-  resultTotal.textContent =
-    String(TOTAL_QUESTIONS);
-
-  playInstructionElement.textContent =
-    "Sữa đã hoàn thành thử thách!";
-
-  playFeedback.textContent =
-    getResultMessage(playScore);
-
+  resultScore.textContent = String(playScore);
+  resultTotal.textContent = String(TOTAL_QUESTIONS);
+  playInstructionElement.textContent = "Sóc đã hoàn thành thử thách!";
+  playFeedback.textContent = getResultMessage(playScore);
   playSoundButton.disabled = true;
-
   nextQuestionButton.disabled = false;
-  nextQuestionButton.textContent =
-    "Chơi lại ↻";
-
+  nextQuestionButton.textContent = "Chơi lại ↻";
   questionAnswered = true;
+
+  // Khôi phục hiệu ứng chúc mừng và âm thanh tán dương khi kết thúc.
+  createFireworks(4500);
+  const sequenceId = audioSequence;
+  playAudio(correctSound, sequenceId);
 }
+
 function getResultMessage(score) {
-  if (score === TOTAL_QUESTIONS) {
-    return "Xuất sắc! Sữa đã trả lời đúng tất cả câu hỏi.";
-  }
-
-  if (score >= 8) {
-    return "Rất tốt! Sữa đã nhớ được nhiều chữ cái.";
-  }
-
-  if (score >= 5) {
-    return "Khá tốt! Sữa hãy luyện thêm một lượt nữa nhé.";
-  }
-
-  return "Sữa hãy quay lại phần Học chữ rồi thử lại nhé.";
+  if (score === TOTAL_QUESTIONS) return "Xuất sắc! Sóc đã trả lời đúng tất cả câu hỏi.";
+  if (score >= 8) return "Rất tốt! Sóc đã nhớ được nhiều chữ cái.";
+  if (score >= 5) return "Khá tốt! Sóc hãy luyện thêm một lượt nữa nhé.";
+  return "Sóc hãy quay lại phần Học chữ rồi thử lại nhé.";
 }
+
 function restartPlayMode() {
-  stopCurrentAudio();
-
-  playScore = 0;
-  currentQuestionNumber = 1;
-  currentCorrectItem = null;
-  currentChoices = [];
-  questionAnswered = false;
-
-  playSoundButton.disabled = false;
-
-  nextQuestionButton.disabled = true;
-  nextQuestionButton.textContent = "Câu tiếp theo →";
-  prepareQuestionPool();
-  createQuestion();
+  openPlayMode();
 }
-playSoundButton.addEventListener(
-  "click",
-  playQuestionSound
-);
 
-nextQuestionButton.addEventListener(
-  "click",
-  goToNextQuestion
-);
+soundButton.addEventListener("click", playCurrentSound);
+letterButton.addEventListener("click", playCurrentSound);
+previousButton.addEventListener("click", showPreviousLetter);
+nextButton.addEventListener("click", showNextLetter);
+learnModeButton.addEventListener("click", openLearnMode);
+playModeButton.addEventListener("click", openPlayMode);
+homeButton.addEventListener("click", returnHome);
+playHomeButton.addEventListener("click", returnHome);
+playSoundButton.addEventListener("click", playQuestionSound);
+nextQuestionButton.addEventListener("click", () => {
+  if (currentQuestionNumber >= TOTAL_QUESTIONS && resultPanel.classList.contains("hidden") === false) {
+    restartPlayMode();
+    return;
+  }
+  if (currentQuestionNumber >= TOTAL_QUESTIONS && questionAnswered) {
+    showPlayResult();
+    return;
+  }
+  goToNextQuestion();
+});
 
 showScreen(homeScreen);
 renderCurrentLetter();
+preloadAudio("sounds/correct.mp3");
+preloadAudio("sounds/wrong.mp3");
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./service-worker.js").catch((error) => {
-      console.warn("Không thể đăng ký Service Worker:", error);
-    });
+    navigator.serviceWorker.register("./service-worker.js", { updateViaCache: "none" })
+      .catch((error) => console.warn("Không thể đăng ký Service Worker:", error));
   });
 }
