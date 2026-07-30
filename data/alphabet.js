@@ -30,7 +30,7 @@ const alphabet = [
     upper: "Â",
     lower: "â",
     fileCode: "aa",
-    word: " Cái ấm nước",
+    word: " Cái ấm",
     image: "images/aa.webp",
     sound: "sounds/aa.mp3",
     choiceSound: "sounds/choices/aa.mp3",
