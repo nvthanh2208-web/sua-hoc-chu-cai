@@ -8,6 +8,7 @@ const alphabet = [
     image: "images/a.webp",
     sound: "sounds/a.mp3",
     choiceSound: "sounds/choices/a.mp3",
+    category: "nguyen-am",
     difficulty: 1
   },
   {
