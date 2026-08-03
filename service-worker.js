@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_NAME = "sua-hoc-chu-v19-auto-question-fireworks";
+const CACHE_NAME = "sua-hoc-chu-v1-chu-kem-hinh";
 
 const LETTER_CODES = [
   "a", "aw", "aa", "b", "c", "d", "dd", "e", "ee", "g",
