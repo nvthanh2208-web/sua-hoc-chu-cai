@@ -154,7 +154,7 @@ const alphabet = [
   {
     id: 16,
     fileCode: "n",
-    word: "Cái nón",
+    word: "Quả na",
     image: "images/n.webp",
     sound: "sounds/n.mp3",
     choiceSound: "sounds/choices/n.mp3",
