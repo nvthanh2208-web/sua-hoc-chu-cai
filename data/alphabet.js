@@ -64,7 +64,7 @@ const alphabet = [
   {
     id: 7,
     fileCode: "dd",
-    word: "Cái bóng đèn",
+    word: "Bóng đèn",
     image: "images/dd.webp",
     sound: "sounds/dd.mp3",
     choiceSound: "sounds/choices/dd.mp3",
