@@ -311,7 +311,7 @@ async function checkPlayAnswer(button, selectedItem) {
 
   if (!isCorrect) {
     button.classList.add("wrong");
-    playFeedback.textContent = `${selectedItem.upper} chưa đúng. Sữa thử lại nhé!`;
+    playFeedback.textContent = `chưa đúng. Sữa thử lại nhé!`;
     await playFeedbackSequence(selectedItem, false, sequenceId);
     button.classList.remove("wrong");
     if (!questionAnswered) setAnswerCardsDisabled(false);
